@@ -7,3 +7,4 @@
 .idea/dictionaries/nikita.xml
 *.http
 *.http
+app/rest/api.http
