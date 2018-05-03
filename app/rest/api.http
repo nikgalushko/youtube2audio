@@ -1,0 +1,14 @@
+GET http://localhost:8080/api/v1/audio?link=https://www.youtube.com/watch?v=Nh12pwRFsm4
+Authorization: BEARER eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1MjUyNTMzMjZ9.ihNTcwiGjicPzTFRoptfn38maKqdx9t2rjPnxApJodA
+
+####
+
+POST http://localhost:8080/api/v1/login
+Content-Type: application/json
+
+{"login": "admin", "pass": "123"}
+
+####
+
+GET http://localhost:8080/api/v1/job/cfde42dff8197a65df24c0fdda391bdc29fe8b9961023d14646cd39e430e10a1
+Authorization: BEARER eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1MjUxNzk0MDd9.UG1oGFv6xg24Xgcc6xRmhOy-vCppACctWsCCA_3y9lQ
