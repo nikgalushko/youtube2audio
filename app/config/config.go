@@ -14,33 +14,44 @@ type Config struct {
 	Apis       Nodes
 }
 
-func New(consulAddr string) Config {
-	return Config{}
+type ConfigReader struct {
+	prefix    string
+	lastIndex uint64
+	client    *consulapi.Client
 }
 
-func (c Config) Reload() (Config, error) {
-	cfg := Config{}
+func NewConfigReader(addr, prefix string) (ConfigReader, error) {
+	c := ConfigReader{prefix: prefix, lastIndex: 0}
 	consulCfg := consulapi.DefaultConfig()
-	consulCfg.Address = "85.90.244.67:8500"
+	consulCfg.Address = addr
 	consulClient, err := consulapi.NewClient(consulCfg)
 	if err != nil {
 		log.Printf("[FATAL] starting error %s\n", err.Error())
-		return cfg, err
+		return c, err
 	}
+
+	c.client = consulClient
+	return c, nil
+}
+
+func (cr *ConfigReader) Read() (Config, error) {
+	cfg := Config{}
 
 	qo := consulapi.QueryOptions{
 		AllowStale: true,
-		WaitIndex:  c.lastIndex,
+		WaitIndex:  cr.lastIndex,
 	}
 
-	kvPairs, _, err := consulClient.KV().List("test", &qo)
+	kvPairs, qm, err := cr.client.KV().List(cr.prefix, &qo)
 	if err != nil {
 		log.Printf("[FATAL] consul query error %s\n", err.Error())
 		return cfg, err
 	}
 
+	cr.lastIndex = qm.LastIndex
+
 	for _, item := range kvPairs {
-		item.Key = strings.Replace(item.Key, "test", "", 1)
+		item.Key = strings.Replace(item.Key, cr.prefix, "", 1)
 		dir, file := path.Split(item.Key)
 		if file == "" {
 			continue

@@ -5,3 +5,5 @@
 .idea/modules.xml
 .idea/misc.xml
 .idea/dictionaries/nikita.xml
+*.http
+*.http

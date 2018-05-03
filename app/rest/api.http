@@ -1,5 +1,5 @@
 GET http://localhost:8080/api/v1/audio?link=https://www.youtube.com/watch?v=Nh12pwRFsm4
-Authorization: BEARER eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1MjUyNTMzMjZ9.ihNTcwiGjicPzTFRoptfn38maKqdx9t2rjPnxApJodA
+Authorization: BEARER eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1MjUzNjQ4NDl9.gMVsx6qRJzNGXy9Yka0vkOy4cz6OakHqpFN91wPSpIs
 
 ####
 

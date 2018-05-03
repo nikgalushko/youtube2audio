@@ -1,16 +1,24 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	"log"
 
 	"github.com/jetuuuu/youtube2audio/app/config"
 	"github.com/jetuuuu/youtube2audio/app/rest"
 )
 
 func main() {
-	c := config.New("")
-	c, _ = c.Reload()
-	fmt.Println("Start server with config ", c)
-	s := rest.New(c)
+	consulAddrPtr := flag.String("addr", "", "consul addres must be ip:port")
+	consulPrefixPtr := flag.String("pref", "test", "consul prefix")
+	flag.Parse()
+
+	if consulAddrPtr == nil || *consulAddrPtr == "" {
+		log.Fatal("Consul addres must be not empty")
+		return
+	}
+
+	reader, _ := config.NewConfigReader(*consulAddrPtr, *consulPrefixPtr)
+	s := rest.New(reader)
 	s.Run()
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -17,19 +18,30 @@ import (
 	"github.com/jetuuuu/youtube2audio/app/youtube"
 )
 
+//var atomicConfig
+
 type JSON map[string]interface{}
 
 type Server struct {
-	token *jwtauth.JWTAuth
-	cfg   config.Config
+	token     *jwtauth.JWTAuth
+	cfgReader config.ConfigReader
+	cfg       *atomic.Value
 }
 
-func New(c config.Config) Server {
-	s := Server{token: jwtauth.New("HS256", []byte("secret"), nil), cfg: c}
+func New(c config.ConfigReader) Server {
+	v := atomic.Value{}
+	s := Server{token: jwtauth.New("HS256", []byte("secret"), nil), cfgReader: c, cfg: &v}
 	return s
 }
 
-func (s Server) Run() {
+func (s *Server) Run() error {
+	cfg, err := s.cfgReader.Read()
+	if err != nil {
+		log.Fatalf("running server error %s", err.Error())
+		return err
+	}
+	s.cfg.Store(cfg)
+
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -53,10 +65,19 @@ func (s Server) Run() {
 	})
 
 	go func() {
-
+		ticker := time.Tick(3 * time.Second)
+		for range ticker {
+			newCfg, err := s.cfgReader.Read()
+			if err == nil {
+				s.cfg.Store(newCfg)
+			}
+			log.Printf("Reread config %v", newCfg)
+		}
 	}()
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	err = http.ListenAndServe(":8080", router)
+	log.Fatal(err)
+	return err
 }
 
 func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +104,8 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[%s] [INFO] v %s", id, v.Duration)
 
 		//send link to ffmpeg node
-		node := s.cfg.Converters.Next()
+		cfg := s.cfg.Load().(config.Config)
+		node := cfg.Converters.Next()
 		log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, node.Adress)
 	}(jobID, u)
 
