@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/boltdb/bolt"
 )
 
@@ -23,4 +25,19 @@ func New(dbFile string) (*Storage, error) {
 	})
 
 	return &s, err
+}
+
+func (s Storage) LoadUser(login string) (User, error) {
+	u := &User{}
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("users"))
+		if bucket == nil {
+			return fmt.Errorf("bucket users not found")
+		}
+
+		val := bucket.Get([]byte(login))
+		return u.Unmarshal(val)
+	})
+
+	return *u, err
 }
