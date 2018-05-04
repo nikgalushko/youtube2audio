@@ -6,6 +6,7 @@ import (
 
 	"github.com/jetuuuu/youtube2audio/app/config"
 	"github.com/jetuuuu/youtube2audio/app/rest"
+	"github.com/jetuuuu/youtube2audio/app/storage"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 	}
 
 	reader, _ := config.NewConfigReader(*consulAddrPtr, *consulPrefixPtr)
-	s := rest.New(reader)
+	store, _ := storage.New("./bolt.db")
+	s := rest.New(reader, store)
 	s.Run()
 }

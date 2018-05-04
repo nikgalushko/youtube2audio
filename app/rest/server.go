@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/jetuuuu/youtube2audio/app/config"
+	"github.com/jetuuuu/youtube2audio/app/storage"
 	"github.com/jetuuuu/youtube2audio/app/utils"
 	"github.com/jetuuuu/youtube2audio/app/youtube"
 )
@@ -26,11 +27,12 @@ type Server struct {
 	token     *jwtauth.JWTAuth
 	cfgReader config.ConfigReader
 	cfg       *atomic.Value
+	s         *storage.Storage
 }
 
-func New(c config.ConfigReader) Server {
+func New(c config.ConfigReader, store *storage.Storage) Server {
 	v := atomic.Value{}
-	s := Server{token: jwtauth.New("HS256", []byte("secret"), nil), cfgReader: c, cfg: &v}
+	s := Server{token: jwtauth.New("HS256", []byte("secret"), nil), cfgReader: c, cfg: &v, s: store}
 	return s
 }
 
@@ -61,6 +63,7 @@ func (s *Server) Run() error {
 
 		r.Group(func(r chi.Router) {
 			r.Post("/login", s.login)
+			r.Post("/create", s.createUser)
 		})
 	})
 
@@ -134,14 +137,40 @@ func (s Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u, err := s.s.LoadUser(request.Login)
+	if err != nil || u.Pass != request.Pass {
+		render.Render(w, r, &errorRenderer{Status: http.StatusUnauthorized})
+		return
+	}
+
 	now := time.Now()
-	_, token, err := s.token.Encode(jwtauth.Claims{"exp": now.Add(30 * time.Minute).Unix()})
+	_, token, err := s.token.Encode(jwtauth.Claims{"exp": now.Add(30 * time.Minute).Unix(), "reqPerHour": u.Permissions.RequestPerHour, "ttl": u.Permissions.TTL})
 	if err != nil {
 		render.Render(w, r, &errorRenderer{Status: http.StatusBadRequest, Error: err})
 	}
 
 	log.Printf("[%s] [INFO] gave new token for %s \n", middleware.GetReqID(r.Context()), request.Login)
 	render.JSON(w, r, JSON{"token": token})
+}
+
+func (s Server) createUser(w http.ResponseWriter, r *http.Request) {
+	u := storage.User{
+		Permissions: storage.Permission{
+			TTL:            10 * time.Minute,
+			RequestPerHour: 5,
+		},
+	}
+	if err := render.DecodeJSON(r.Body, &u); err != nil {
+		render.Render(w, r, errorInvalidRequest)
+		return
+	}
+
+	if err := s.s.CreateUser(u); err != nil {
+		render.Render(w, r, errorInvalidRequest)
+		return
+	}
+
+	render.JSON(w, r, JSON{"status": "ok"})
 }
 
 func linkContext(next http.Handler) http.Handler {

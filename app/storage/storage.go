@@ -41,3 +41,21 @@ func (s Storage) LoadUser(login string) (User, error) {
 
 	return *u, err
 }
+
+func (s Storage) CreateUser(u User) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("users"))
+		if b == nil {
+			return fmt.Errorf("bucket users not found")
+		}
+
+		id, _ := b.NextSequence()
+		u.ID = int(id)
+		val, err := u.Marshal()
+		if err != nil {
+			return err
+		}
+
+		return b.Put([]byte(u.Login), val)
+	})
+}

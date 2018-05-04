@@ -6,18 +6,22 @@ import (
 )
 
 type User struct {
-	ID          int
-	Login       string
-	Pass        string
-	LastLogin   time.Time
-	Permissions Permission
+	ID          int        `json:"_id"`
+	Login       string     `json:"login"`
+	Pass        string     `json:"pass"`
+	LastLogin   time.Time  `json:"last_login"`
+	Permissions Permission `json:"permissions"`
 }
 
 func (u *User) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, u)
 }
 
+func (u User) Marshal() ([]byte, error) {
+	return json.Marshal(u)
+}
+
 type Permission struct {
-	RequestPerHour int
-	TTL            time.Duration
+	RequestPerHour int           `json:"req_per_hour"`
+	TTL            time.Duration `json:"ttl"`
 }
