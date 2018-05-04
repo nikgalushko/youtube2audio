@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -25,26 +24,17 @@ type JSON map[string]interface{}
 type Server struct {
 	token     *jwtauth.JWTAuth
 	cfgReader config.ConfigReader
-	cfg       *atomic.Value
 	s         *storage.Storage
 }
 
 func New(c config.ConfigReader, store *storage.Storage) *Server {
-	v := atomic.Value{}
 	usersToken := jwtauth.New("HS256", []byte("secret"), nil)
-	s := Server{token: usersToken, cfgReader: c, cfg: &v, s: store}
+	s := Server{token: usersToken, cfgReader: c, s: store}
 	return &s
 }
 
 func (s *Server) Run() error {
 	log.Printf("public Run")
-	cfg, err := s.cfgReader.Read()
-	if err != nil {
-		log.Fatalf("running server error %s", err.Error())
-		return err
-	}
-	s.cfg.Store(cfg)
-
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -68,18 +58,7 @@ func (s *Server) Run() error {
 		})
 	})
 
-	go func() {
-		ticker := time.Tick(3 * time.Second)
-		for range ticker {
-			newCfg, err := s.cfgReader.Read()
-			if err == nil {
-				s.cfg.Store(newCfg)
-			}
-			log.Printf("Reread config %v", newCfg)
-		}
-	}()
-
-	err = http.ListenAndServe(":8080", router)
+	err := http.ListenAndServe(":8080", router)
 	log.Fatal(err)
 	return err
 }
@@ -107,7 +86,7 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("[%s] [INFO] v %s", id, v.Duration)
 
-		cfg := s.cfg.Load().(config.Config)
+		cfg := s.cfgReader.Read()
 		node := cfg.Converters.Next()
 		converterURL, _ := url.Parse(node.Adress)
 		converterURL.Scheme = "http"

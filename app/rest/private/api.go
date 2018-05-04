@@ -3,7 +3,6 @@ package private
 import (
 	"log"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -19,16 +18,13 @@ type JSON map[string]interface{}
 type Server struct {
 	token     *jwtauth.JWTAuth
 	cfgReader config.ConfigReader
-	cfg       *atomic.Value
 	s         *storage.Storage
 }
 
 func New(c config.ConfigReader, store *storage.Storage) *Server {
-	v := atomic.Value{}
 	s := Server{
 		token:     jwtauth.New("HS256", []byte("private_secret"), nil),
 		cfgReader: c,
-		cfg:       &v,
 		s:         store,
 	}
 	return &s
@@ -36,12 +32,6 @@ func New(c config.ConfigReader, store *storage.Storage) *Server {
 
 func (s *Server) Run() error {
 	log.Printf("[private] Run")
-	cfg, err := s.cfgReader.Read()
-	if err != nil {
-		log.Fatalf("running server error %s", err.Error())
-		return err
-	}
-	s.cfg.Store(cfg)
 
 	router := chi.NewRouter()
 
@@ -64,18 +54,7 @@ func (s *Server) Run() error {
 		})
 	})
 
-	go func() {
-		ticker := time.Tick(3 * time.Second)
-		for range ticker {
-			newCfg, err := s.cfgReader.Read()
-			if err == nil {
-				s.cfg.Store(newCfg)
-			}
-			log.Printf("Reread config %v", newCfg)
-		}
-	}()
-
-	err = http.ListenAndServe(":8001", router)
+	err := http.ListenAndServe(":8001", router)
 	log.Fatal(err)
 	return err
 }

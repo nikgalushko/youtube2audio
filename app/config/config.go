@@ -4,6 +4,8 @@ import (
 	"log"
 	"path"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	consulapi "github.com/hashicorp/consul/api"
 )
@@ -18,6 +20,7 @@ type ConfigReader struct {
 	prefix    string
 	lastIndex uint64
 	client    *consulapi.Client
+	cfg       *atomic.Value
 }
 
 func NewConfigReader(addr, prefix string) (ConfigReader, error) {
@@ -31,10 +34,30 @@ func NewConfigReader(addr, prefix string) (ConfigReader, error) {
 	}
 
 	c.client = consulClient
+	var v atomic.Value
+	c.cfg = &v
+	cfg, err := c.read()
+	if err != nil {
+		return c, err
+	}
+
+	c.cfg.Store(cfg)
+	go func() {
+		for range time.Tick(3 * time.Second) {
+			cfg, err := c.read()
+			if err == nil {
+				c.cfg.Store(cfg)
+			}
+		}
+	}()
 	return c, nil
 }
 
-func (cr *ConfigReader) Read() (Config, error) {
+func (cr ConfigReader) Read() Config {
+	return cr.cfg.Load().(Config)
+}
+
+func (cr *ConfigReader) read() (Config, error) {
 	cfg := Config{}
 
 	qo := consulapi.QueryOptions{
