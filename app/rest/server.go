@@ -24,15 +24,18 @@ import (
 type JSON map[string]interface{}
 
 type Server struct {
-	token     *jwtauth.JWTAuth
-	cfgReader config.ConfigReader
-	cfg       *atomic.Value
-	s         *storage.Storage
+	token          *jwtauth.JWTAuth
+	converterToken *jwtauth.JWTAuth
+	cfgReader      config.ConfigReader
+	cfg            *atomic.Value
+	s              *storage.Storage
 }
 
 func New(c config.ConfigReader, store *storage.Storage) Server {
 	v := atomic.Value{}
-	s := Server{token: jwtauth.New("HS256", []byte("secret"), nil), cfgReader: c, cfg: &v, s: store}
+	usersToken := jwtauth.New("HS256", []byte("secret"), nil)
+	converterToken := jwtauth.New("HS256", []byte("convert_secret"), nil)
+	s := Server{token: usersToken, cfgReader: c, cfg: &v, s: store, converterToken: converterToken}
 	return s
 }
 
@@ -65,6 +68,19 @@ func (s *Server) Run() error {
 			r.Post("/login", s.login)
 			r.Post("/create", s.createUser)
 		})
+
+		r.Route("/converter", func(r2 chi.Router) {
+			r2.Group(func(r2 chi.Router) {
+				r2.Use(jwtauth.Verifier(s.converterToken))
+				r2.Use(jwtauth.Authenticator)
+
+				r2.Post("/link*", s.pass)
+			})
+
+			r2.Group(func(r2 chi.Router) {
+				r2.Post("/register", s.pass)
+			})
+		})
 	})
 
 	go func() {
@@ -82,6 +98,8 @@ func (s *Server) Run() error {
 	log.Fatal(err)
 	return err
 }
+
+func (s Server) pass(w http.ResponseWriter, r *http.Request) {}
 
 func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 	u, ok := r.Context().Value("url").(*url.URL)
@@ -106,10 +124,21 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("[%s] [INFO] v %s", id, v.Duration)
 
-		//send link to ffmpeg node
 		cfg := s.cfg.Load().(config.Config)
 		node := cfg.Converters.Next()
-		log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, node.Adress)
+		converterURL, _ := url.Parse(node.Adress)
+		converterURL.Scheme = "http"
+		q := converterURL.Query()
+		q.Add("link", v.Formats[0].URL)
+		converterURL.RawQuery = q.Encode()
+
+		log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, converterURL.String())
+		resp, err := http.Get(converterURL.String())
+		if err != nil {
+			log.Printf("[WARN] error put job into queue %s", err.Error())
+			return
+		}
+		log.Printf("[INFO] response code %d", resp.StatusCode)
 	}(jobID, u)
 
 	render.JSON(w, r, JSON{"code": resp.Status, "jobID": jobID})
