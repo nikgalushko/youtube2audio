@@ -42,6 +42,7 @@ func (s *Server) Run() error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
+
 	router.Use(middleware.Recoverer)
 
 	router.Route("/api/v1", func(r chi.Router) {
@@ -105,10 +106,8 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 
 	cfg := s.cfgReader.Read()
 	node := cfg.Converters.Next()
-	converterURL, _ := url.Parse(node.Adress)
-	converterURL.Scheme = "http"
-
-	log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, converterURL.String())
+	targetURL := "http://" + node.Adress + "/api/v1/processing"
+	log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, targetURL)
 
 	data, err := json.Marshal(interfaces.JSON{"job_id": id, "link": v.Formats[0].URL})
 	if err != nil {
@@ -116,7 +115,7 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 		return
 	}
 
-	resp, err := http.Post(converterURL.String(), "application/json", bytes.NewReader(data))
+	resp, err := http.Post(targetURL, "application/json", bytes.NewReader(data))
 	if err != nil {
 		log.Printf("[WARN] error put job into queue %s", err.Error())
 		return
