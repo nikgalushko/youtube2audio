@@ -6,9 +6,16 @@ import (
 	"github.com/boltdb/bolt"
 )
 
+type Serializable interface {
+	Marshal() ([]byte, error)
+	Unmarshal([]byte) error
+}
+
 type Storage struct {
 	db *bolt.DB
 }
+
+var Buckets = []string{"users", "converters", "stats", "history"}
 
 func New(dbFile string) (*Storage, error) {
 	var s Storage
@@ -20,42 +27,43 @@ func New(dbFile string) (*Storage, error) {
 	s.db = db
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("users"))
-		return err
+		for _, b := range Buckets {
+			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 
 	return &s, err
 }
 
-func (s Storage) LoadUser(login string) (User, error) {
-	u := &User{}
+func (s Storage) Load(b, key string, v Serializable) error {
 	err := s.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("users"))
+		bucket := tx.Bucket([]byte(b))
 		if bucket == nil {
-			return fmt.Errorf("bucket users not found")
+			return fmt.Errorf("bucket %s not found", b)
 		}
 
-		val := bucket.Get([]byte(login))
-		return u.Unmarshal(val)
+		val := bucket.Get([]byte(key))
+		return v.Unmarshal(val)
 	})
 
-	return *u, err
+	return err
 }
 
-func (s Storage) CreateUser(u User) error {
+func (s Storage) Save(b, key string, v Serializable) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("users"))
+		b := tx.Bucket([]byte(b))
 		if b == nil {
-			return fmt.Errorf("bucket users not found")
+			return fmt.Errorf("bucket %s not found", b)
 		}
 
-		id, _ := b.NextSequence()
-		u.ID = int(id)
-		val, err := u.Marshal()
+		val, err := v.Marshal()
 		if err != nil {
 			return err
 		}
 
-		return b.Put([]byte(u.Login), val)
+		return b.Put([]byte(key), val)
 	})
 }

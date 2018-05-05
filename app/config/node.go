@@ -29,6 +29,16 @@ func (n *Nodes) Add(node Node) {
 	n.size++
 }
 
+func (n Nodes) Contains(adress string) bool {
+	for _, node := range n.nodes {
+		if node.Adress == adress {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Next return next node from list
 func (n *Nodes) Next() Node {
 	i := atomic.AddInt64(n.index, 1) % n.size

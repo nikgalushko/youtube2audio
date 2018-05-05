@@ -5,15 +5,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jetuuuu/youtube2audio/app/rest/interfaces"
+
+	"github.com/go-chi/render"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
 
 	"github.com/jetuuuu/youtube2audio/app/config"
+	"github.com/jetuuuu/youtube2audio/app/rest/errors"
 	"github.com/jetuuuu/youtube2audio/app/storage"
 )
-
-type JSON map[string]interface{}
 
 type Server struct {
 	token     *jwtauth.JWTAuth
@@ -39,6 +42,8 @@ func (s *Server) Run() error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
+	router.Use(s.checkIPMiddleware)
+
 	router.Use(middleware.Recoverer)
 
 	router.Route("/api/v1", func(r chi.Router) {
@@ -49,7 +54,7 @@ func (s *Server) Run() error {
 			})
 
 			r.Group(func(r chi.Router) {
-				r.Post("/register", s.register)
+				r.Get("/register", s.register)
 			})
 		})
 	})
@@ -60,5 +65,23 @@ func (s *Server) Run() error {
 }
 
 func (s Server) register(w http.ResponseWriter, r *http.Request) {
+	_, token, err := s.token.Encode(jwtauth.Claims{"exp": time.Now().Add(24 * time.Hour).Unix()})
+	if err != nil {
+		render.Render(w, r, &errors.Renderer{Status: http.StatusBadRequest, Error: err})
+	}
 
+	render.JSON(w, r, interfaces.JSON{"token": token})
+}
+
+func (s Server) checkIPMiddleware(h http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		cfg := s.cfgReader.Read()
+		if !cfg.Converters.Contains(r.RemoteAddr) {
+			render.Render(w, r, &errors.Renderer{Status: http.StatusForbidden})
+			return
+		}
+		h.ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(fn)
 }

@@ -14,12 +14,11 @@ import (
 
 	"github.com/jetuuuu/youtube2audio/app/config"
 	"github.com/jetuuuu/youtube2audio/app/rest/errors"
+	"github.com/jetuuuu/youtube2audio/app/rest/interfaces"
 	"github.com/jetuuuu/youtube2audio/app/storage"
 	"github.com/jetuuuu/youtube2audio/app/utils"
 	"github.com/jetuuuu/youtube2audio/app/youtube"
 )
-
-type JSON map[string]interface{}
 
 type Server struct {
 	token     *jwtauth.JWTAuth
@@ -103,7 +102,7 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[INFO] response code %d", resp.StatusCode)
 	}(jobID, u)
 
-	render.JSON(w, r, JSON{"code": resp.Status, "jobID": jobID})
+	render.JSON(w, r, interfaces.JSON{"code": resp.Status, "jobID": jobID})
 }
 
 func (s Server) getInfoAboutJob(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +113,7 @@ func (s Server) getInfoAboutJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[%s] [INFO] info about job %s", middleware.GetReqID(r.Context()), jobID)
-	render.JSON(w, r, JSON{"status": "wait", "jobID": jobID})
+	render.JSON(w, r, interfaces.JSON{"status": "wait", "jobID": jobID})
 }
 
 func (s Server) login(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +127,8 @@ func (s Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := s.s.LoadUser(request.Login)
+	u := &storage.User{}
+	err := s.s.Load("users", request.Login, u)
 	if err != nil || u.Pass != request.Pass {
 		render.Render(w, r, &errors.Renderer{Status: http.StatusUnauthorized})
 		return
@@ -141,27 +141,27 @@ func (s Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[%s] [INFO] gave new token for %s \n", middleware.GetReqID(r.Context()), request.Login)
-	render.JSON(w, r, JSON{"token": token})
+	render.JSON(w, r, interfaces.JSON{"token": token})
 }
 
 func (s Server) createUser(w http.ResponseWriter, r *http.Request) {
-	u := storage.User{
+	u := &storage.User{
 		Permissions: storage.Permission{
 			TTL:            10 * time.Minute,
 			RequestPerHour: 5,
 		},
 	}
-	if err := render.DecodeJSON(r.Body, &u); err != nil {
+	if err := render.DecodeJSON(r.Body, u); err != nil {
 		render.Render(w, r, errors.InvalidRequest)
 		return
 	}
 
-	if err := s.s.CreateUser(u); err != nil {
+	if err := s.s.Save("users", u.Login, u); err != nil {
 		render.Render(w, r, errors.InvalidRequest)
 		return
 	}
 
-	render.JSON(w, r, JSON{"status": "ok"})
+	render.JSON(w, r, interfaces.JSON{"status": "ok"})
 }
 
 func linkContext(next http.Handler) http.Handler {

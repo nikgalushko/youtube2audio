@@ -17,7 +17,7 @@ func (u *User) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, u)
 }
 
-func (u User) Marshal() ([]byte, error) {
+func (u *User) Marshal() ([]byte, error) {
 	return json.Marshal(u)
 }
 
