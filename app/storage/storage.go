@@ -15,7 +15,7 @@ type Storage struct {
 	db *bolt.DB
 }
 
-var Buckets = []string{"users", "converters", "stats", "history"}
+var Buckets = []string{"users", "converters", "stats", "history", "jobs"}
 
 func New(dbFile string) (*Storage, error) {
 	var s Storage

@@ -1,7 +1,9 @@
 package public
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
@@ -48,7 +50,7 @@ func (s *Server) Run() error {
 			r.Use(jwtauth.Authenticator)
 
 			r.With(linkContext).Get("/audio*", s.getAudioFromLink)
-			r.Get("/job/{jobID}", s.getInfoAboutJob)
+			r.Get("/status/{jobID}", s.getInfoAboutJob)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -76,33 +78,50 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jobID := utils.Hash(middleware.GetReqID(r.Context()))
-
-	go func(id string, u *url.URL) {
-		v, err := youtube.NewFromURL(u)
-		if err != nil {
-			log.Printf("[%s] [WARN] error in getting info about %s\n", id, u.String())
-			return
-		}
-		log.Printf("[%s] [INFO] v %s", id, v.Duration)
-
-		cfg := s.cfgReader.Read()
-		node := cfg.Converters.Next()
-		converterURL, _ := url.Parse(node.Adress)
-		converterURL.Scheme = "http"
-		q := converterURL.Query()
-		q.Add("link", v.Formats[0].URL)
-		converterURL.RawQuery = q.Encode()
-
-		log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, converterURL.String())
-		resp, err := http.Get(converterURL.String())
-		if err != nil {
-			log.Printf("[WARN] error put job into queue %s", err.Error())
-			return
-		}
-		log.Printf("[INFO] response code %d", resp.StatusCode)
-	}(jobID, u)
+	s.s.Save("jobs", jobID, &storage.Job{Time: time.Now(), Status: "performed"})
+	go s.sendJobToConverter(u, jobID)
 
 	render.JSON(w, r, interfaces.JSON{"code": resp.Status, "jobID": jobID})
+}
+
+func (s Server) sendJobToConverter(u *url.URL, id string) {
+	var err error
+	defer func() {
+		var status string
+		if err == nil {
+			status = "performed"
+		} else {
+			status = "fail"
+		}
+		s.s.Save("jobs", id, &storage.Job{Time: time.Now(), Status: status})
+	}()
+
+	v, err := youtube.NewFromURL(u)
+	if err != nil {
+		log.Printf("[%s] [WARN] error in getting info about %s\n", id, u.String())
+		return
+	}
+	log.Printf("[%s] [INFO] v %s", id, v.Duration)
+
+	cfg := s.cfgReader.Read()
+	node := cfg.Converters.Next()
+	converterURL, _ := url.Parse(node.Adress)
+	converterURL.Scheme = "http"
+
+	log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, converterURL.String())
+
+	data, err := json.Marshal(interfaces.JSON{"job_id": id, "link": v.Formats[0].URL})
+	if err != nil {
+		log.Printf("[%s] [WARN] json marshal error %s", err.Error())
+		return
+	}
+
+	resp, err := http.Post(converterURL.String(), "application/json", bytes.NewReader(data))
+	if err != nil {
+		log.Printf("[WARN] error put job into queue %s", err.Error())
+		return
+	}
+	log.Printf("[INFO] response code %d", resp.StatusCode)
 }
 
 func (s Server) getInfoAboutJob(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +132,9 @@ func (s Server) getInfoAboutJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[%s] [INFO] info about job %s", middleware.GetReqID(r.Context()), jobID)
-	render.JSON(w, r, interfaces.JSON{"status": "wait", "jobID": jobID})
+	var job storage.Job
+	s.s.Load("jobs", jobID, &job)
+	render.JSON(w, r, interfaces.JSON{"status": job.Status, "jobID": jobID})
 }
 
 func (s Server) login(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +142,8 @@ func (s Server) login(w http.ResponseWriter, r *http.Request) {
 		Login string `json:"login"`
 		Pass  string `json:"pass"`
 	}{}
+
+	defer r.Body.Close()
 
 	if err := render.DecodeJSON(r.Body, &request); err != nil {
 		render.Render(w, r, &errors.Renderer{Status: http.StatusBadRequest, Error: err})
@@ -151,6 +174,9 @@ func (s Server) createUser(w http.ResponseWriter, r *http.Request) {
 			RequestPerHour: 5,
 		},
 	}
+
+	defer r.Body.Close()
+
 	if err := render.DecodeJSON(r.Body, u); err != nil {
 		render.Render(w, r, errors.InvalidRequest)
 		return
