@@ -91,7 +91,7 @@ func NewFromURL(link *url.URL) (Video, error) {
 			Itag:    itag,
 			Type:    fquery.Get("type"),
 			Quality: fquery.Get("quality"),
-			URL:     fquery.Get("url") + "&signature=" + fquery.Get("sig"),
+			URL:     fquery.Get("url"), // + "&signature=" + fquery.Get("sig"),
 		})
 	}
 

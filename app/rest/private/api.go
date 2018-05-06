@@ -16,6 +16,8 @@ import (
 	"github.com/jetuuuu/youtube2audio/app/config"
 	"github.com/jetuuuu/youtube2audio/app/rest/errors"
 	"github.com/jetuuuu/youtube2audio/app/storage"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Server struct {
@@ -38,15 +40,15 @@ func (s *Server) Run() error {
 
 	router := chi.NewRouter()
 
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logger)
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
-	router.Use(s.checkIPMiddleware)
-
 	router.Use(middleware.Recoverer)
 
 	router.Route("/api/v1", func(r chi.Router) {
+		r.Use(middleware.RequestID)
+		r.Use(middleware.Logger)
+		r.Use(middleware.RealIP)
+		r.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
+		r.Use(s.checkIPMiddleware)
+
 		r.Route("/converter", func(r chi.Router) {
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(s.token))
@@ -61,7 +63,9 @@ func (s *Server) Run() error {
 		})
 	})
 
-	err := http.ListenAndServe(":8001", router)
+	router.Handle("/metrics", promhttp.Handler())
+
+	err := http.ListenAndServe(":8081", router)
 	log.Fatal(err)
 	return err
 }
