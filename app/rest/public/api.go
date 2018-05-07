@@ -9,10 +9,13 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
 	"github.com/go-chi/render"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/jetuuuu/youtube2audio/app/config"
 	"github.com/jetuuuu/youtube2audio/app/rest/errors"
@@ -20,6 +23,23 @@ import (
 	"github.com/jetuuuu/youtube2audio/app/storage"
 	"github.com/jetuuuu/youtube2audio/app/utils"
 	"github.com/jetuuuu/youtube2audio/app/youtube"
+)
+
+var (
+	timings = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name: "app_method_timing",
+			Help: "per method time",
+		},
+		[]string{"method"},
+	)
+	counter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "app_method_counter",
+			Help: "per method count",
+		},
+		[]string{"method"},
+	)
 )
 
 type Server struct {
@@ -35,23 +55,30 @@ func New(c config.ConfigReader, store *storage.Storage) *Server {
 }
 
 func (s *Server) Run() error {
-	log.Printf("public Run")
-	router := chi.NewRouter()
+	log.Printf("[public] Run")
 
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logger)
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
+	prometheus.MustRegister(timings)
+	prometheus.MustRegister(counter)
+
+	router := chi.NewRouter()
 
 	router.Use(middleware.Recoverer)
 
 	router.Route("/api/v1", func(r chi.Router) {
+
+		r.Use(middleware.Recoverer)
+		r.Use(middleware.RequestID)
+		r.Use(middleware.Logger)
+		r.Use(middleware.RealIP)
+		r.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
+		r.Use(timeTrackMiddleware)
+
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(s.token))
 			r.Use(jwtauth.Authenticator)
 
 			r.With(linkContext).Get("/audio*", s.getAudioFromLink)
-			r.Get("/status/{jobID}", s.getInfoAboutJob)
+			r.Get("/status*", s.getInfoAboutJob)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -59,6 +86,8 @@ func (s *Server) Run() error {
 			r.Post("/create", s.createUser)
 		})
 	})
+
+	router.Handle("/metrics", promhttp.Handler())
 
 	err := http.ListenAndServe(":8080", router)
 	log.Fatal(err)
@@ -124,7 +153,7 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 }
 
 func (s Server) getInfoAboutJob(w http.ResponseWriter, r *http.Request) {
-	jobID := chi.URLParam(r, "jobID")
+	jobID := r.URL.Query().Get("jobID")
 	if len(jobID) < 64 {
 		render.Render(w, r, errors.InvalidRequest)
 		return
@@ -201,4 +230,16 @@ func linkContext(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "url", u)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func timeTrackMiddleware(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		next.ServeHTTP(w, r)
+
+		timings.WithLabelValues(r.URL.Path).Observe(float64(time.Since(start).Seconds()))
+		counter.WithLabelValues(r.URL.Path).Inc()
+	}
+	return http.HandlerFunc(fn)
 }

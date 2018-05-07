@@ -43,6 +43,8 @@ func (s *Server) Run() error {
 	router.Use(middleware.Recoverer)
 
 	router.Route("/api/v1", func(r chi.Router) {
+
+		r.Use(middleware.Recoverer)
 		r.Use(middleware.RequestID)
 		r.Use(middleware.Logger)
 		r.Use(middleware.RealIP)
