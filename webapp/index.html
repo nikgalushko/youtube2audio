@@ -11,27 +11,47 @@
     <title>Youtube2Audio</title>
 </head>
 <body>
-        <div id="login-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-            <div class="">
-                <div class="loginmodal-container">
-                    <h1>Login to Your Account</h1><br>
-                    <form id="login_form">
-                        <input type="text" name="login" placeholder="Username">
-                        <input type="password" name="pass" placeholder="Password">
-                        <button type="submit" class="login loginmodal-submit">Login</button>
-                    </form>
-                    
-                    <div class="login-help">
-                        <a href="#">Register</a> - <a href="#">Forgot Password</a>
-                    </div>
+    <div id="login-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div>
+            <div class="loginmodal-container">
+                <h1>Login to Your Account</h1><br>
+                <form id="login_form">
+                    <input type="text" name="login" placeholder="Username">
+                    <input type="password" name="pass" placeholder="Password">
+                    <button id="submit_login" type="button" class="login loginmodal-submit">Login</button>
+                </form>
+                
+                <div class="login-help">
+                    <a href="#">Register</a> - <a href="#">Forgot Password</a>
                 </div>
             </div>
         </div>
+    </div>
+
+    <div id="workplace" style="display: none;">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col">
+                </div>
+                <div class="col">
+                    <div id="link_container" class="input-group mb-3">
+                        <input id="link_value" type="text" class="form-control" placeholder="youtube link" aria-label="youtube link" aria-describedby="basic-addon2">
+                        <div class="input-group-append">
+                            <button id="send_link" class="btn btn-outline-secondary" type="button">Button</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
