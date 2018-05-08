@@ -91,3 +91,7 @@
   .login-help{
     font-size: 12px;
   }
+
+  body {
+    padding-top: 40px;
+  }

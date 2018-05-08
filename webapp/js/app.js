@@ -1,5 +1,5 @@
+var API_URL = "/api/v1/";
 $(function(){
-    var API_URL = "/api/v1/";
 	$("#submit_login").on("click", function(e) {
 		var arr = $("#login_form").serializeArray(),
 			data = {};
@@ -17,8 +17,8 @@ $(function(){
 			$("#login-modal").hide();
             $("#workplace").show();
             Cookies.set('token', d.token);
+            getHistory();
         }).fail(function (x) {
-            alert(x);
         });
 
 		return false;
@@ -34,9 +34,33 @@ $(function(){
             headers: {"Authorization": " BEARER " + Cookies.get('token')}
         }).done(function(d) {
             $('<div id="job_alert" class="alert alert-success" role="alert">'+ d.jobID +'</div>').insertBefore("#link_container");
-            $("#job_alert").delay(5000).slideUp('slow', function(){ $(this).remove(); } )
+            $("#job_alert").delay(3000).slideUp('slow', function(){ $(this).remove(); } )
         }).fail(function (x) {
-            //alert(x);
         });
     });
 });
+
+
+
+function getHistory() {
+    $.ajax({
+        type: "GET",
+        url: API_URL+"history",
+        processData: false,
+        headers: {"Authorization": " BEARER " + Cookies.get('token')}
+    }).done(function(d) {
+        var html = "";
+        for (var i = 0; i < d.history.length; i++) {
+            var item = d.history[i];
+            html += '<tr><th scope="row">' + (i + 1) +'</th>'
+            html += '<td>'+ item.time +'</td>'
+            html += '<td>'+ item.title +'</td>'
+            html += '<td>'+ item.audio_link +'</td>'
+            html += '<td>'+ item.status +'</td>'
+            html += '</tr>'
+        }
+        $("#history_body").html(html);
+        $('#history_container').show();
+    }).fail(function (x) {
+    });
+}
