@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/go-chi/chi"
@@ -78,7 +79,7 @@ func (s *Server) Run() error {
 			r.Use(jwtauth.Authenticator)
 
 			r.With(linkContext).Get("/audio*", s.getAudioFromLink)
-			r.Get("/status*", s.getInfoAboutJob)
+			r.Get("/history", s.history)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -108,7 +109,16 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jobID := utils.Hash(middleware.GetReqID(r.Context()))
-	s.s.Save("jobs", jobID, &storage.Job{Time: time.Now(), Status: "performed"})
+
+	t, _ := s.token.Decode(jwtauth.TokenFromHeader(r))
+	claims := t.Claims.(jwt.MapClaims)
+
+	var user storage.User
+	s.s.Load("users", claims["login"].(string), &user)
+
+	user.History = append(user.History, jobID)
+	s.s.Save("users", claims["login"].(string), &user)
+
 	go s.sendJobToConverter(u, jobID)
 
 	render.JSON(w, r, interfaces.JSON{"code": resp.Status, "jobID": jobID})
@@ -116,6 +126,12 @@ func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
 
 func (s Server) sendJobToConverter(u *url.URL, id string) {
 	var err error
+	v, err := youtube.NewFromURL(u)
+	if err != nil {
+		log.Printf("[%s] [WARN] error in getting info about %s\n", id, u.String())
+		return
+	}
+
 	defer func() {
 		var status string
 		if err == nil {
@@ -123,14 +139,9 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 		} else {
 			status = "fail"
 		}
-		s.s.Save("jobs", id, &storage.Job{Time: time.Now(), Status: status})
+		s.s.Save("history", id, &storage.HistoryItem{Time: time.Now(), Status: status, Title: v.Title})
 	}()
 
-	v, err := youtube.NewFromURL(u)
-	if err != nil {
-		log.Printf("[%s] [WARN] error in getting info about %s\n", id, u.String())
-		return
-	}
 	log.Printf("[%s] [INFO] v %s", id, v.Duration)
 
 	cfg := s.cfgReader.Read()
@@ -152,17 +163,23 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 	log.Printf("[INFO] response code %d", resp.StatusCode)
 }
 
-func (s Server) getInfoAboutJob(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Query().Get("jobID")
-	if len(jobID) < 64 {
-		render.Render(w, r, errors.InvalidRequest)
-		return
+func (s Server) history(w http.ResponseWriter, r *http.Request) {
+	t, _ := s.token.Decode(jwtauth.TokenFromHeader(r))
+
+	log.Printf("[%s] [INFO] info history job %s", middleware.GetReqID(r.Context()))
+
+	claims := t.Claims.(jwt.MapClaims)
+	u := &storage.User{}
+	s.s.Load("users", claims["login"].(string), u)
+	var history []storage.HistoryItem
+
+	for _, h := range u.History {
+		var item storage.HistoryItem
+		s.s.Load("history", h, &item)
+		history = append(history, item)
 	}
 
-	log.Printf("[%s] [INFO] info about job %s", middleware.GetReqID(r.Context()), jobID)
-	var job storage.Job
-	s.s.Load("jobs", jobID, &job)
-	render.JSON(w, r, interfaces.JSON{"status": job.Status, "jobID": jobID})
+	render.JSON(w, r, interfaces.JSON{"history": history})
 }
 
 func (s Server) login(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +203,7 @@ func (s Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	_, token, err := s.token.Encode(jwtauth.Claims{"exp": now.Add(30 * time.Minute).Unix(), "reqPerHour": u.Permissions.RequestPerHour, "ttl": u.Permissions.TTL})
+	_, token, err := s.token.Encode(jwtauth.Claims{"exp": now.Add(30 * time.Minute).Unix(), "login": u.Login})
 	if err != nil {
 		render.Render(w, r, &errors.Renderer{Status: http.StatusBadRequest, Error: err})
 	}

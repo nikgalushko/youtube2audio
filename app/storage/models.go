@@ -10,6 +10,7 @@ type User struct {
 	Pass        string     `json:"pass"`
 	LastLogin   time.Time  `json:"last_login"`
 	Permissions Permission `json:"permissions"`
+	History     []string   `json:"history"`
 }
 
 func (u *User) Unmarshal(data []byte) error {
@@ -39,15 +40,17 @@ func (c *Converter) Marshal() ([]byte, error) {
 	return json.Marshal(c)
 }
 
-type Job struct {
+type HistoryItem struct {
 	Time   time.Time `json:"time"`
+	Title  string    `json:"title"`
+	Link   string    `json:"audio_link"`
 	Status string    `json:"status"`
 }
 
-func (j *Job) Unmarshal(data []byte) error {
+func (j *HistoryItem) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, j)
 }
 
-func (j *Job) Marshal() ([]byte, error) {
+func (j *HistoryItem) Marshal() ([]byte, error) {
 	return json.Marshal(j)
 }

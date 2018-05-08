@@ -93,15 +93,17 @@ func (s Server) changeJobStatus(w http.ResponseWriter, r *http.Request) {
 	request := struct {
 		JobID  string `json:"job_id"`
 		Status string `json:"status"`
+		Link   string `json:"audio_link"`
 	}{}
 
 	defer r.Body.Close()
 
 	if err = render.DecodeJSON(r.Body, &request); err == nil {
-		var job storage.Job
-		if err = s.s.Load("jobs", request.JobID, &job); err == nil {
-			job.Status = request.Status
-			err = s.s.Save("jobs", request.JobID, &job)
+		var item storage.HistoryItem
+		if err = s.s.Load("history", request.JobID, &item); err == nil {
+			item.Status = request.Status
+			item.Link = request.Link
+			err = s.s.Save("history", request.JobID, &item)
 		}
 	}
 
