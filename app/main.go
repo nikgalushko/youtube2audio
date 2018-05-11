@@ -20,7 +20,7 @@ func main() {
 	}
 
 	reader, _ := config.NewConfigReader(*consulAddrPtr, *consulPrefixPtr)
-	store, _ := storage.New("./bolt.db")
+	store, _ := storage.New("/data/bolt.db")
 	s := rest.New(reader, store)
 	s.Run()
 }

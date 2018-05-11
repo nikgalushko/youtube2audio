@@ -1,4 +1,5 @@
 FROM golang:latest
+RUN mkdir /data
 RUN mkdir -p /go/src/github.com/jetuuuu/youtube2audio
 COPY . /go/src/github.com/jetuuuu/youtube2audio/
 WORKDIR /go/src/github.com/jetuuuu/youtube2audio/

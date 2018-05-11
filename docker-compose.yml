@@ -3,10 +3,12 @@ services:
   my_rest:
     build: .
     environment:
-      - CONSUL_ADDR="127.0.0.1"
+      - CONSUL_ADDR=85.90.244.67:8700
     ports:
       - "8080:8080"
       - "8081:8081"
+    volumes:
+      - /var:/data
   nginx:
     image: "nginx:latest"
     ports:
