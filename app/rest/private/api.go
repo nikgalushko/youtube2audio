@@ -49,7 +49,7 @@ func (s *Server) Run() error {
 		r.Use(middleware.Logger)
 		r.Use(middleware.RealIP)
 		r.Use(middleware.Throttle(10), middleware.Timeout(30*time.Second))
-		r.Use(s.checkIPMiddleware)
+		//r.Use(s.checkIPMiddleware)
 
 		r.Route("/converter", func(r chi.Router) {
 			r.Group(func(r chi.Router) {
