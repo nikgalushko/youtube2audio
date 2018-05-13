@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	converter = "ffmpeg"
-	api       = "http_api"
+	converter    = "ffmpeg"
+	api          = "http_api"
+	audioStorage = "storage"
 )
 
 type Node struct {

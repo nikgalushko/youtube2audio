@@ -11,9 +11,10 @@ import (
 )
 
 type Config struct {
-	lastIndex  uint64
-	Converters Nodes
-	Apis       Nodes
+	lastIndex     uint64
+	Converters    Nodes
+	Apis          Nodes
+	AudioStorages Nodes
 }
 
 type ConfigReader struct {
@@ -86,6 +87,8 @@ func (cr *ConfigReader) read() (Config, error) {
 			cfg.Converters.Add(node)
 		case api:
 			cfg.Apis.Add(node)
+		case audioStorage:
+			cfg.AudioStorage.Add(node)
 		}
 	}
 	return cfg, err
