@@ -56,7 +56,7 @@ function getHistory() {
             html += '<tr><th scope="row">' + (i + 1) +'</th>'
             html += '<td>'+ item.time +'</td>'
             html += '<td>'+ item.title +'</td>'
-            html += '<td>'+ item.audio_link +'</td>'
+            html += '<td><a href='+item.audio_link+'>ссылка</a></td>'
             html += '<td>'+ item.status +'</td>'
             html += '</tr>'
         }
