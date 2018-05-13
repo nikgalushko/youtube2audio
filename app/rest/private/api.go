@@ -102,7 +102,8 @@ func (s Server) changeJobStatus(w http.ResponseWriter, r *http.Request) {
 		var item storage.HistoryItem
 		if err = s.s.Load("history", request.JobID, &item); err == nil {
 			item.Status = request.Status
-			node := s.cfgReader.Read().AudioStorages.Next()
+			cfg := s.cfgReader.Read()
+			node := cfg.AudioStorages.Next()
 			item.Link = node.Adress + request.JobID + ".mp3"
 			err = s.s.Save("history", request.JobID, &item)
 		}
