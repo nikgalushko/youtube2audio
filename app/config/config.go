@@ -88,7 +88,7 @@ func (cr *ConfigReader) read() (Config, error) {
 		case api:
 			cfg.Apis.Add(node)
 		case audioStorage:
-			cfg.AudioStorage.Add(node)
+			cfg.AudioStorages.Add(node)
 		}
 	}
 	return cfg, err
