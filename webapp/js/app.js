@@ -18,6 +18,7 @@ $(function(){
             $("#workplace").show();
             Cookies.set('token', d.token);
             getHistory();
+            setInterval(getHistory, 5000);    
         }).fail(function (x) {
         });
 

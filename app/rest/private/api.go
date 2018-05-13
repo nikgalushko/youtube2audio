@@ -102,7 +102,7 @@ func (s Server) changeJobStatus(w http.ResponseWriter, r *http.Request) {
 		var item storage.HistoryItem
 		if err = s.s.Load("history", request.JobID, &item); err == nil {
 			item.Status = request.Status
-			item.Link = request.Link
+			item.Link = r.RemoteAddr + "/" + request.JobID + ".mp3"
 			err = s.s.Save("history", request.JobID, &item)
 		}
 	}
