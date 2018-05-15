@@ -152,16 +152,17 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 
 	data, err := json.Marshal(interfaces.JSON{"job_id": id, "link": v.Smallest().URL})
 	if err != nil {
-		log.Printf("[%s] [WARN] json marshal error %s", err.Error())
+		log.Printf("[%s] [WARN] json marshal error %s", id, err.Error())
 		return
 	}
 
+	log.Printf("[%s] [INFO] json data  %s", id, string(data))
 	resp, err := http.Post(targetURL, "application/json", bytes.NewReader(data))
 	if err != nil {
-		log.Printf("[WARN] error put job into queue %s", err.Error())
+		log.Printf("[%s] [WARN] error put job into queue %s", id, err.Error())
 		return
 	}
-	log.Printf("[INFO] response code %d", resp.StatusCode)
+	log.Printf("[%s] [INFO] response code %d", id, resp.StatusCode)
 }
 
 func (s Server) history(w http.ResponseWriter, r *http.Request) {
