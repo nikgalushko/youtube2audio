@@ -27,7 +27,7 @@ type Video struct {
 func (v Video) Smallest() Format {
 	var f Format
 	for _, format := range v.Formats {
-		if format.Quality == "small" {
+		if format.Quality == "medium" {
 			f = format
 			break
 		}
