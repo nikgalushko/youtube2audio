@@ -35,7 +35,7 @@ $(function(){
             headers: {"Authorization": " BEARER " + Cookies.get('token')}
         }).done(function(d) {
             $('<div id="job_alert" class="alert alert-success" role="alert">'+ d.jobID +'</div>').insertBefore("#link_container");
-            $("#job_alert").delay(3000).slideUp('slow', function(){ $(this).remove(); } )
+            $("#job_alert").delay(60000).slideUp('slow', function(){ $(this).remove(); } )
         }).fail(function (x) {
         });
     });
