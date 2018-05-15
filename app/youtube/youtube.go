@@ -99,11 +99,16 @@ func NewFromURL(link *url.URL) (Video, error) {
 
 		itag, _ := strconv.Atoi(fquery.Get("itag"))
 
+		signature := fquery.Get("sig")
+		link := fquery.Get("url")
+		if signature != "" {
+			link += "&signature=" + signature
+		}
 		video.Formats = append(video.Formats, Format{
 			Itag:    itag,
 			Type:    fquery.Get("type"),
 			Quality: fquery.Get("quality"),
-			URL:     fquery.Get("url"), // + "&signature=" + fquery.Get("sig"),
+			URL:     link,
 		})
 	}
 
