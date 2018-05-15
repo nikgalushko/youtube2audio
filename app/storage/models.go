@@ -41,6 +41,7 @@ func (c *Converter) Marshal() ([]byte, error) {
 }
 
 type HistoryItem struct {
+	ID     string    `json:"id"`
 	Time   time.Time `json:"time"`
 	Title  string    `json:"title"`
 	Link   string    `json:"audio_link"`

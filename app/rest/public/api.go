@@ -80,6 +80,7 @@ func (s *Server) Run() error {
 
 			r.With(linkContext).Get("/audio*", s.getAudioFromLink)
 			r.Get("/history", s.history)
+			r.Delete("/delete_from_history/{item}", s.clearHistory)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -149,7 +150,7 @@ func (s Server) sendJobToConverter(u *url.URL, id string) {
 	targetURL := "http://" + node.Adress + "/api/v1/processing"
 	log.Printf("[%s] [INFO] send request to %s->%s", id, node.Name, targetURL)
 
-	data, err := json.Marshal(interfaces.JSON{"job_id": id, "link": v.Formats[0].URL})
+	data, err := json.Marshal(interfaces.JSON{"job_id": id, "link": v.Smallest().URL})
 	if err != nil {
 		log.Printf("[%s] [WARN] json marshal error %s", err.Error())
 		return
@@ -176,10 +177,51 @@ func (s Server) history(w http.ResponseWriter, r *http.Request) {
 	for _, h := range u.History {
 		var item storage.HistoryItem
 		s.s.Load("history", h, &item)
+		item.ID = h
 		history = append(history, item)
 	}
 
 	render.JSON(w, r, interfaces.JSON{"history": history})
+}
+
+func (s Server) clearHistory(w http.ResponseWriter, r *http.Request) {
+	t, _ := s.token.Decode(jwtauth.TokenFromHeader(r))
+
+	reqID := middleware.GetReqID(r.Context())
+	log.Printf("[%s] [INFO] clear history", reqID)
+
+	claims := t.Claims.(jwt.MapClaims)
+	u := &storage.User{}
+	s.s.Load("users", claims["login"].(string), u)
+
+	item := chi.URLParam(r, "item")
+	cfg := s.cfgReader.Read()
+	node := cfg.Converters.Next()
+	targetURL := "http://" + node.Adress + "/api/v1/delete/" + item
+	httpClient := http.Client{Timeout: 5 * time.Second}
+
+	for i, h := range u.History {
+		if h == item {
+			req, err := http.NewRequest(http.MethodDelete, targetURL, nil)
+			if err != nil {
+				log.Printf("[%s] [WARN] make request error %s", reqID, err.Error())
+				render.Render(w, r, &errors.Renderer{Status: http.StatusInternalServerError, Error: err})
+				return
+			}
+
+			log.Printf("[%s] [INFO] send request to %s", reqID, targetURL)
+			resp, err := httpClient.Do(req)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				s.s.Delete("history", item)
+				u.History = append(u.History[:i], u.History[i+1:]...)
+				s.s.Save("users", claims["login"].(string), u)
+				break
+			} else {
+				log.Printf("[%s] [WARN] response code %d", resp.StatusCode)
+			}
+		}
+	}
+
 }
 
 func (s Server) login(w http.ResponseWriter, r *http.Request) {

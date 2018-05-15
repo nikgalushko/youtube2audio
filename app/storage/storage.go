@@ -67,3 +67,14 @@ func (s Storage) Save(b, key string, v Serializable) error {
 		return b.Put([]byte(key), val)
 	})
 }
+
+func (s Storage) Delete(b, key string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(b))
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", b)
+		}
+
+		return b.Delete([]byte(key))
+	})
+}

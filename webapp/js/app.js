@@ -53,15 +53,28 @@ function getHistory() {
         var html = "";
         for (var i = 0; i < d.history.length; i++) {
             var item = d.history[i];
-            html += '<tr><th scope="row">' + (i + 1) +'</th>'
+            html += '<tr id="'+item.id+'"><th scope="row">' + (i + 1) +'</th>'
             html += '<td>'+ item.time +'</td>'
             html += '<td>'+ item.title +'</td>'
             html += '<td><a href='+item.audio_link+'>ссылка</a></td>'
             html += '<td>'+ item.status +'</td>'
+            html += '<td><button onClick="deleteHistoryItem("'+item.id+'");" class="btn btn-outline-secondary" type="button">Уалить</button></td>'
             html += '</tr>'
         }
         $("#history_body").html(html);
         $('#history_container').show();
+    }).fail(function (x) {
+    });
+}
+
+function deleteHistoryItem(id) {
+    $.ajax({
+        type: "DELETE",
+        url: API_URL+"delete_from_history/" + id,
+        processData: false,
+        headers: {"Authorization": " BEARER " + Cookies.get('token')}
+    }).done(function(d) {
+        $("#" + id).remove();
     }).fail(function (x) {
     });
 }

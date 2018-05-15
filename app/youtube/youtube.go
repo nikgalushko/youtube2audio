@@ -24,6 +24,18 @@ type Video struct {
 	Formats                     []Format
 }
 
+func (v Video) Smallest() Format {
+	var f Format
+	for _, format := range v.Formats {
+		if format.Quality == "small" {
+			f = format
+			break
+		}
+	}
+
+	return f
+}
+
 // Format is info about video type
 type Format struct {
 	Itag               int
