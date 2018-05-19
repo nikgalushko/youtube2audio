@@ -103,17 +103,18 @@ func (s *Server) Run() error {
 }
 
 func (s Server) rss(w http.ResponseWriter, r *http.Request) {
-	feed := &feeds.Feed{
-		Title:       "jetuuu feed",
-		Description: "jetuuu's records",
-		Created:     time.Now(),
-	}
-
-	t, _ := s.rssToken.Decode(jwtauth.TokenFromHeader(r))
+	t, _ := s.rssToken.Decode(chi.URLParam(r, "rssToken"))
 	claims := t.Claims.(jwt.MapClaims)
 
 	u := &storage.User{}
 	s.s.Load("users", claims["login"].(string), u)
+
+	feed := &feeds.Feed{
+		Title:       u.Login + "'s feed",
+		Description: u.Login + "'s records",
+		Link:        &feeds.Link{},
+		Created:     time.Now(),
+	}
 
 	for _, h := range u.History {
 		var item storage.HistoryItem
@@ -134,7 +135,7 @@ func (s Server) rss(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) generateRssLink(w http.ResponseWriter, r *http.Request) {
-	t, _ := s.rssToken.Decode(jwtauth.TokenFromHeader(r))
+	t, _ := s.token.Decode(jwtauth.TokenFromHeader(r))
 	claims := t.Claims.(jwt.MapClaims)
 
 	_, token, err := s.rssToken.Encode(jwtauth.Claims{"login": claims["login"].(string)})
