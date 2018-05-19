@@ -24,6 +24,8 @@ import (
 	"github.com/jetuuuu/youtube2audio/app/storage"
 	"github.com/jetuuuu/youtube2audio/app/utils"
 	"github.com/jetuuuu/youtube2audio/app/youtube"
+
+	"github.com/gorilla/feeds"
 )
 
 var (
@@ -45,13 +47,15 @@ var (
 
 type Server struct {
 	token     *jwtauth.JWTAuth
+	rssToken  *jwtauth.JWTAuth
 	cfgReader config.ConfigReader
 	s         *storage.Storage
 }
 
 func New(c config.ConfigReader, store *storage.Storage) *Server {
 	usersToken := jwtauth.New("HS256", []byte("secret"), nil)
-	s := Server{token: usersToken, cfgReader: c, s: store}
+	rssToken := jwtauth.New("HS256", []byte("rss_secret"), nil)
+	s := Server{token: usersToken, cfgReader: c, s: store, rssToken: rssToken}
 	return &s
 }
 
@@ -81,11 +85,13 @@ func (s *Server) Run() error {
 			r.With(linkContext).Get("/audio*", s.getAudioFromLink)
 			r.Get("/history", s.history)
 			r.Delete("/delete_from_history/{item}", s.clearHistory)
+			r.Get("/generate_rss_link", s.generateRssLink)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Post("/login", s.login)
 			r.Post("/create", s.createUser)
+			r.Get("/rss/{rssToken}", s.rss)
 		})
 	})
 
@@ -94,6 +100,49 @@ func (s *Server) Run() error {
 	err := http.ListenAndServe(":8080", router)
 	log.Fatal(err)
 	return err
+}
+
+func (s Server) rss(w http.ResponseWriter, r *http.Request) {
+	feed := &feeds.Feed{
+		Title:       "jetuuu feed",
+		Description: "jetuuu's records",
+		Created:     time.Now(),
+	}
+
+	t, _ := s.rssToken.Decode(jwtauth.TokenFromHeader(r))
+	claims := t.Claims.(jwt.MapClaims)
+
+	u := &storage.User{}
+	s.s.Load("users", claims["login"].(string), u)
+
+	for _, h := range u.History {
+		var item storage.HistoryItem
+		s.s.Load("history", h, &item)
+		feed.Items = append(feed.Items, &feeds.Item{
+			Title:   item.Title,
+			Link:    &feeds.Link{Href: item.Link},
+			Created: item.Time,
+		})
+	}
+
+	rssFeed, err := feed.ToRss()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.Write([]byte(rssFeed))
+	}
+}
+
+func (s Server) generateRssLink(w http.ResponseWriter, r *http.Request) {
+	t, _ := s.rssToken.Decode(jwtauth.TokenFromHeader(r))
+	claims := t.Claims.(jwt.MapClaims)
+
+	_, token, err := s.rssToken.Encode(jwtauth.Claims{"login": claims["login"].(string)})
+	if err != nil {
+		render.Render(w, r, &errors.Renderer{Status: http.StatusBadRequest, Error: err})
+	}
+
+	render.JSON(w, r, interfaces.JSON{"rss_link": "/rss/" + token})
 }
 
 func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
