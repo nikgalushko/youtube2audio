@@ -91,7 +91,7 @@ function getRssLink() {
         processData: false,
         headers: {"Authorization": " BEARER " + Cookies.get('token')}
     }).done(function(d) {
-        var uri = window.location.origin + d.rss_link;
+        var uri = window.location.origin + API_URL + d.rss_link;
         window.open(uri, '_blank');
     }).fail(function (x) {
     });

@@ -86,6 +86,7 @@ func (s *Server) Run() error {
 			r.Get("/history", s.history)
 			r.Delete("/delete_from_history/{item}", s.clearHistory)
 			r.Get("/generate_rss_link", s.generateRssLink)
+			router.Get("/rss/{rssToken}", s.rss)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -95,7 +96,6 @@ func (s *Server) Run() error {
 	})
 
 	router.Handle("/metrics", promhttp.Handler())
-	router.Get("/rss/{rssToken}", s.rss)
 
 	err := http.ListenAndServe(":8080", router)
 	log.Fatal(err)
@@ -145,7 +145,7 @@ func (s Server) generateRssLink(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, &errors.Renderer{Status: http.StatusBadRequest, Error: err})
 	}
 
-	render.JSON(w, r, interfaces.JSON{"rss_link": "/rss/" + token})
+	render.JSON(w, r, interfaces.JSON{"rss_link": "rss/" + token})
 }
 
 func (s Server) getAudioFromLink(w http.ResponseWriter, r *http.Request) {
