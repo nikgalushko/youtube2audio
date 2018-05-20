@@ -40,7 +40,7 @@ $(function(){
         });
     });
 
-    $("rss_link").on("click", function(e){
+    $("#rss_link").on("click", function(e){
         getRssLink();
         return false;
     })
