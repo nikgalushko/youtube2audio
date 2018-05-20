@@ -128,12 +128,8 @@ func (s Server) rss(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rssFeed, err := feed.ToRss()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.Write([]byte(rssFeed))
-	}
+	w.Header().Set("Content-Type", "application/rss+xml")
+	feed.WriteRss(w)
 }
 
 func (s Server) generateRssLink(w http.ResponseWriter, r *http.Request) {
