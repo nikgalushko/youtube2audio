@@ -86,12 +86,12 @@ func (s *Server) Run() error {
 			r.Get("/history", s.history)
 			r.Delete("/delete_from_history/{item}", s.clearHistory)
 			r.Get("/generate_rss_link", s.generateRssLink)
-			r.Get("/rss/{rssToken}", s.rss)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Post("/login", s.login)
 			r.Post("/create", s.createUser)
+			r.Get("/rss/{rssToken}", s.rss)
 		})
 	})
 
