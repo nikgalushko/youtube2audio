@@ -39,6 +39,11 @@ $(function(){
         }).fail(function (x) {
         });
     });
+
+    $("rss_link").on("click", function(e){
+        getRssLink();
+        return false;
+    })
 });
 
 
@@ -75,6 +80,19 @@ function deleteHistoryItem(id) {
         headers: {"Authorization": " BEARER " + Cookies.get('token')}
     }).done(function(d) {
         $("#" + id).remove();
+    }).fail(function (x) {
+    });
+}
+
+function getRssLink() {
+    $.ajax({
+        type: "GET",
+        url: API_URL+"generate_rss_link",
+        processData: false,
+        headers: {"Authorization": " BEARER " + Cookies.get('token')}
+    }).done(function(d) {
+        var uri = window.location.origin + d.rss_link;
+        window.open(uri, '_blank');
     }).fail(function (x) {
     });
 }

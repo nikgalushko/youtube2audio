@@ -91,11 +91,11 @@ func (s *Server) Run() error {
 		r.Group(func(r chi.Router) {
 			r.Post("/login", s.login)
 			r.Post("/create", s.createUser)
-			r.Get("/rss/{rssToken}", s.rss)
 		})
 	})
 
 	router.Handle("/metrics", promhttp.Handler())
+	router.Get("/rss/{rssToken}", s.rss)
 
 	err := http.ListenAndServe(":8080", router)
 	log.Fatal(err)
@@ -112,18 +112,20 @@ func (s Server) rss(w http.ResponseWriter, r *http.Request) {
 	feed := &feeds.Feed{
 		Title:       u.Login + "'s feed",
 		Description: u.Login + "'s records",
-		Link:        &feeds.Link{},
+		Link:        &feeds.Link{Href: "http://google.com"},
 		Created:     time.Now(),
 	}
 
 	for _, h := range u.History {
 		var item storage.HistoryItem
 		s.s.Load("history", h, &item)
-		feed.Items = append(feed.Items, &feeds.Item{
-			Title:   item.Title,
-			Link:    &feeds.Link{Href: item.Link},
-			Created: item.Time,
-		})
+		if _, err := url.Parse(item.Link); err == nil && item.Link != "" {
+			feed.Items = append(feed.Items, &feeds.Item{
+				Title:   item.Title,
+				Link:    &feeds.Link{Href: item.Link},
+				Created: item.Time,
+			})
+		}
 	}
 
 	rssFeed, err := feed.ToRss()
